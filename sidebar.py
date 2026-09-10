@@ -170,10 +170,14 @@ def desired_rows(panes, workspaces, tabs, icons="font", inactive_ids=frozenset()
             # Herdr joins tokens with " · ", so the focus marker rides on the
             # logo token instead of taking a token of its own. A separate
             # focus variant lets the config colour that one row on its own.
+            # The marker sits right before the logo rather than at the start
+            # of the row: Herdr indents an entry's first row by one cell and
+            # the rest by three, so a row-leading marker lands in two
+            # different columns depending on whether a heading is shown.
             if pane.get("focused"):
-                values["hs_logo_focus"] = FOCUS_BAR + prefix + logo
+                values["hs_logo_focus"] = prefix + FOCUS_BAR + logo
             else:
-                values["hs_logo"] = BLANK + prefix + logo
+                values["hs_logo"] = prefix + BLANK + logo
             status = pane.get("agent_status", "unknown")
             if status not in STATES:
                 status = "unknown"
