@@ -17,6 +17,8 @@ from runtime import PLUGIN_ID, herdr_binary, icon_mode, logo_for, run_herdr
 STATES = {"working": "◔", "blocked": "?", "done": "✓", "idle": "○", "unknown": "·"}
 # A braille blank occupies a terminal cell but survives metadata trimming.
 BLANK = "\u2800"
+# Left-edge marker for the focused agent; BLANK keeps unfocused rows aligned.
+FOCUS_BAR = "\u258c"
 HISTORY = {
     "codex": (".codex/history.jsonl", "session_id", "text"),
     "claude": (".claude/history.jsonl", "sessionId", "display"),
@@ -165,7 +167,10 @@ def desired_rows(panes, workspaces, tabs, icons="font", inactive_ids=frozenset()
                 prefix += ("└" if last_in_tab else "├") + (" " if branch_length == "short" else "─ ")
             else:
                 prefix = "" if heading else BLANK * 2
-            values["hs_logo"] = prefix + logo
+            # Herdr joins tokens with " · ", so the focus marker rides on the
+            # logo token instead of taking a token of its own.
+            marker = FOCUS_BAR if pane.get("focused") else BLANK
+            values["hs_logo"] = marker + prefix + logo
             status = pane.get("agent_status", "unknown")
             if status not in STATES:
                 status = "unknown"
