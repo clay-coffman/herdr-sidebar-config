@@ -140,7 +140,7 @@ def desired_rows(panes, workspaces, tabs, icons="font", inactive_ids=frozenset()
     result = {}
     for pane in panes:
         heading = headers[pane["pane_id"]]
-        values = {"hs_group": heading, "hs_tab": None,
+        values = {"hs_group": heading, "hs_tab": None, "hs_logo_focus": None,
                   "hs_gap": None, "hs_logo": None, "hs_terminals": None}
         values.update({f"hs_{state}": None for state in STATES})
         if pane.get("agent"):
@@ -168,9 +168,12 @@ def desired_rows(panes, workspaces, tabs, icons="font", inactive_ids=frozenset()
             else:
                 prefix = "" if heading else BLANK * 2
             # Herdr joins tokens with " · ", so the focus marker rides on the
-            # logo token instead of taking a token of its own.
-            marker = FOCUS_BAR if pane.get("focused") else BLANK
-            values["hs_logo"] = marker + prefix + logo
+            # logo token instead of taking a token of its own. A separate
+            # focus variant lets the config colour that one row on its own.
+            if pane.get("focused"):
+                values["hs_logo_focus"] = FOCUS_BAR + prefix + logo
+            else:
+                values["hs_logo"] = BLANK + prefix + logo
             status = pane.get("agent_status", "unknown")
             if status not in STATES:
                 status = "unknown"
