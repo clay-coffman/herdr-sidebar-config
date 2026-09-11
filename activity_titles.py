@@ -51,6 +51,26 @@ def _records(path):
             yield record
 
 
+def _head_records(path):
+    """Read at most a half MiB from the start, newest record first.
+
+    Pi writes ``session_info`` immediately after the session header and only
+    appends another when the session is renamed, so a long session pushes the
+    name out of the tail window that ``_records`` reads. The head window is the
+    complementary read; callers consult it only when the tail had no answer.
+    """
+    with path.open("rb") as stream:
+        data = stream.read(MAX_BYTES)
+    data = data.rpartition(b"\n")[0]
+    for line in reversed(data.splitlines()):
+        try:
+            record = json.loads(line)
+        except (ValueError, UnicodeError):
+            continue
+        if isinstance(record, dict):
+            yield record
+
+
 def _codex(pane, session_id):
     home = Path(os.environ.get("CODEX_HOME") or Path.home() / ".codex")
     databases = sorted(home.glob("state_*.sqlite"),
@@ -147,6 +167,11 @@ def _pi(pane, session):
             for record in _records(path):
                 if record.get("type") == "session_info":
                     # Empty names intentionally clear the previous name.
+                    return _clean(record.get("name"), pane)
+            # No rename in the tail window: the original name sits at the head
+            # of the file, past the tail of any session longer than MAX_BYTES.
+            for record in _head_records(path):
+                if record.get("type") == "session_info":
                     return _clean(record.get("name"), pane)
         except (OSError, ValueError, UnicodeError):
             continue

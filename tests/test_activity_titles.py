@@ -91,6 +91,19 @@ class ActivityTitleTests(unittest.TestCase):
         self.write(".pi/agent/sessions/--work-project--/2026-09-08_session-1.jsonl", records + [{"type": "session_info", "name": ""}])
         self.assertIsNone(activity_title(self.pane("pi")))
 
+    def test_pi_name_survives_a_session_longer_than_the_tail_window(self):
+        from activity_titles import MAX_BYTES
+        filler = {"type": "message", "role": "assistant", "content": "x" * 2000}
+        records = [{"type": "session", "id": "session-1"},
+                   {"type": "session_info", "name": "Repair remote restore"}]
+        records += [filler] * (MAX_BYTES // 1500)
+        self.write(".pi/agent/sessions/--work-project--/2026-09-08_session-1.jsonl", records)
+        self.assertEqual(activity_title(self.pane("pi")), "Repair remote restore")
+        # A later rename in the tail still wins over the original name at the head.
+        self.write(".pi/agent/sessions/--work-project--/2026-09-08_session-1.jsonl",
+                   records + [{"type": "session_info", "name": "Renamed late"}])
+        self.assertEqual(activity_title(self.pane("pi")), "Renamed late")
+
     def test_pi_mismatched_session_header_is_rejected(self):
         self.write(".pi/agent/sessions/--work-project--/2026-09-08_session-1.jsonl", [
             {"type": "session", "id": "session-2"}, {"type": "session_info", "name": "Wrong agent"}])
