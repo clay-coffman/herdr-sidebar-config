@@ -10,9 +10,9 @@ except ImportError:
 
 def build(output=None):
     font = TTFont(ROOT / "dist/HerdrHarnessLogos-Regular.ttf")
-    for name in ("claude", "codex"):
+    for name in ("claude", "codex", "agy"):
         source = ROOT / (
-            "assets/svg/claude.svg" if name == "claude" else "font/sidebar/codex.svg"
+            "font/sidebar/codex.svg" if name == "codex" else f"assets/svg/{name}.svg"
         )
         glyph = svg_glyph(source, max_width=760, max_height=760, center_y=365)
         glyph.recalcBounds(font["glyf"])
