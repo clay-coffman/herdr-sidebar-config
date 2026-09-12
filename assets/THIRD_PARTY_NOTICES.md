@@ -1,5 +1,11 @@
 # Third-Party Mark Notices
 
+## Antigravity (AGY)
+
+- Source: https://github.com/lobehub/lobe-icons/blob/master/packages/static-svg/icons/antigravity.svg
+- MIT license, Copyright (c) 2023 LobeHub; included in `assets/licenses/lobehub-MIT.txt`.
+- Title removed and monochrome outline scaled for the terminal font. No endorsement implied.
+
 The source marks are used only to identify the corresponding third-party harnesses. Their inclusion does not imply sponsorship or endorsement. The names and marks may be trademarks of their respective owners; the source-code licenses below do not grant additional trademark rights.
 
 ## Claude

@@ -11,10 +11,10 @@ from pathlib import Path
 PLUGIN_ID = "testy-cool.herdr-sidebar"
 FONT_FAMILY = "Herdr Sidebar Logos"
 PUA_LOGOS = {name: chr(0xE1A0 + index) for index, name in enumerate(
-    ("claude", "codex", "opencode", "omp", "cline", "mastracode", "kimi", "kilo", "maki")
+    ("claude", "codex", "opencode", "omp", "cline", "mastracode", "kimi", "kilo", "maki", "agy")
 )}
 TEXT_LOGOS = {"claude": "C", "codex": "AI", "opencode": "OC", "omp": "OMP",
-              "cline": "CL", "mastracode": "MC", "kimi": "KIM", "kilo": "KIL", "maki": "MAK"}
+              "cline": "CL", "mastracode": "MC", "kimi": "KIM", "kilo": "KIL", "maki": "MAK", "agy": "AGY"}
 
 
 def herdr_binary():

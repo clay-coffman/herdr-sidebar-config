@@ -221,7 +221,7 @@ def doctor(args, binary):
     checks["icon_mode_valid"] = mode in {"auto", "font", "text"}
     if mode == "font":
         checks["font_installed"] = read(args.font_dir / FONT) == (ROOT / "dist" / FONT).read_bytes()
-        checks["ghostty_mapping"] = "font-codepoint-map = U+E1A0-U+E1A8=Herdr Sidebar Logos" in (read(args.ghostty_config) or b"").decode().splitlines()
+        checks["ghostty_mapping"] = "font-codepoint-map = U+E1A0-U+E1A9=Herdr Sidebar Logos" in (read(args.ghostty_config) or b"").decode().splitlines()
     emit({"status": "ok" if all(checks.values()) else "needs_attention", "checks": checks,
           "message": "\n".join(f"{'OK' if v else 'CHECK'} {k}" for k,v in checks.items())}, args.json)
     return 0 if all(checks.values()) else 1

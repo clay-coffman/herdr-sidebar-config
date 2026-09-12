@@ -89,7 +89,7 @@ directory in the table above. On Linux, run `fc-cache -f` afterward. Add this to
 Ghostty's config, then open a fresh Ghostty process:
 
 ```ini
-font-codepoint-map = U+E1A0-U+E1A8=Herdr Sidebar Logos
+font-codepoint-map = U+E1A0-U+E1A9=Herdr Sidebar Logos
 ```
 
 The font uses nine private-use codepoints. Only that range is remapped; your

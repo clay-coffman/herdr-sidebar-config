@@ -22,6 +22,7 @@ EXPECTED_GLYPHS = [
     "kimi",
     "kilo",
     "maki",
+    "agy",
 ]
 EXPECTED_CMAP = {0xE1A0 + offset: name for offset, name in enumerate(EXPECTED_GLYPHS)}
 

@@ -32,6 +32,7 @@ STABLE_GLYPH_ORDER = (
     "kimi",
     "kilo",
     "maki",
+    "agy",
 )
 
 
