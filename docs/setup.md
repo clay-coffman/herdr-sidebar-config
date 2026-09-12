@@ -92,10 +92,14 @@ Ghostty's config, then open a fresh Ghostty process:
 font-codepoint-map = U+E1A0-U+E1A9=Herdr Sidebar Logos
 ```
 
-The font uses nine private-use codepoints. Only that range is remapped; your
+The font uses ten private-use codepoints. Only that range is remapped; your
 regular terminal font remains in use for text. If another mapping overlaps the
 range, resolve it explicitly. Other terminals need their own font fallback or
 codepoint mapping configuration; use text mode if unsure.
+
+After a font update, a new window may reuse Ghostty's existing process and cached
+font. On Linux, launch `ghostty --gtk-single-instance=false` for a separate
+process without closing your current windows or Herdr sessions.
 
 ## Manual removal
 

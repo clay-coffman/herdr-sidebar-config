@@ -104,9 +104,10 @@ class SidebarRowsTests(unittest.TestCase):
         self.assertEqual(rows["w1:p1"]["hs_tab"], "main")
         self.assertIsNone(rows["w1:p2"]["hs_tab"])
         self.assertEqual(rows["w1:p3"]["hs_tab"], "\u2800\u2800docs")
-        self.assertEqual(rows["w1:p1"]["hs_logo"], "├─ \ue1a1")
-        self.assertEqual(rows["w1:p2"]["hs_logo"], "\u2800\u2800└─ \ue1a0")
-        self.assertEqual(rows["w1:p3"]["hs_logo"], "└─ \ue1a1")
+        # Unfocused rows reserve the same cell used by the focus bar.
+        self.assertEqual(rows["w1:p1"]["hs_logo"], "├─ \u2800\ue1a1")
+        self.assertEqual(rows["w1:p2"]["hs_logo"], "\u2800\u2800└─ \u2800\ue1a0")
+        self.assertEqual(rows["w1:p3"]["hs_logo"], "└─ \u2800\ue1a1")
 
         # A close/move clears the former heading and updates the remaining branch.
         panes[0].pop("agent")
@@ -126,8 +127,8 @@ class SidebarRowsTests(unittest.TestCase):
         tabs = {"w1:t1": "named-tab", "w1:t2": "shell"}
         compact = desired_rows(panes, workspaces, tabs)
         self.assertTrue(all(row["hs_tab"] is None for row in compact.values()))
-        self.assertEqual(compact["w1:p1"]["hs_logo"], "\ue1a1")
-        self.assertEqual(compact["w1:p2"]["hs_logo"], "\u2800\u2800\ue1a0")
+        self.assertEqual(compact["w1:p1"]["hs_logo"], "\u2800\ue1a1")
+        self.assertEqual(compact["w1:p2"]["hs_logo"], "\u2800\u2800\u2800\ue1a0")
 
         # Count real tabs, including shell-only tabs, so tab identity stays useful.
         panes.append({"pane_id": "w1:p3", "workspace_id": "w1", "tab_id": "w1:t2"})

@@ -8,6 +8,7 @@ __pycache__/
 
 .ruff_cache/
 .pytest_cache/
+.serena/
 
 # dist/ is deliberately NOT ignored. The TTF is what a user installs, and asking
 # them to stand up a virtual environment and run fontTools before they can see a

@@ -17,6 +17,8 @@ Titles and states are demonstration data; the plugin and rendering are real.
   tree. Working groups can move to the top without separating their agents.
 - **Read the task.** Uses native conversation titles and local fallbacks—not
   another model call.
+- **Recognize Antigravity (AGY).** Its own icon and blue agent text replace the
+  generic diamond. Inactive rows still dim; blocked and done retain status colors.
 - **Animated loaders show who's working.** Choose Dots, Orbit, or Pulse in
   Settings. Animation is off by default; turn it off again to restore static
   status marks and stop animation redraws.
