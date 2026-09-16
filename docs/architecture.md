@@ -49,8 +49,10 @@ session_info. Project-only and trivial names are rejected. For a working Codex o
 native session ID, the plugin scans at most the final 512 KiB of that provider's
 local history and selects its latest meaningful user instruction. Malformed
 records, injected instruction headers, screenshot markers, and vague follow-ups
-are skipped. Other cases use the existing terminal title, then tab, pane, and
-provider fallbacks. These are deterministic local heuristics, not conversation
+are skipped. Other cases use the existing terminal title, then the herdr agent
+name, then tab and provider fallbacks. A terminal title that only names the
+pane's own directory (Pi's fixed `π - <cwd>`) is refused, because the space row
+already shows where the agent is. These are deterministic local heuristics, not conversation
 analysis or a model call.
 
 ## Token contract

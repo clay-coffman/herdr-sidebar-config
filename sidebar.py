@@ -78,6 +78,23 @@ def latest_history_task(pane):
     return None
 
 
+# Terminal titles of the form "<brand> <separator> <directory>": Pi sets
+# "π - <cwd basename>" and never changes it, so it says where the agent is,
+# which the space row already shows, and not what it is doing.
+BRANDED_DIRECTORY = re.compile(r"^(?:π|pi|omp|codex|claude)?\s*[-–—>:·|]?\s*(.+?)\s*$", re.I)
+
+
+def _names_own_directory(text, pane):
+    cwd = pane.get("cwd") or pane.get("foreground_cwd") or ""
+    if not cwd:
+        return False
+    base = cwd.rstrip("/").rsplit("/", 1)[-1]
+    if not base:
+        return False
+    match = BRANDED_DIRECTORY.match(text)
+    return bool(match) and match.group(1).lower() == base.lower()
+
+
 def task_label(pane, tabs):
     tokens = pane.get("tokens") or {}
     if tokens.get("hs_title"):
@@ -92,7 +109,8 @@ def task_label(pane, tabs):
     raw = pane.get("terminal_title_stripped") or ""
     parts = [p.strip().rstrip(".… ") for p in raw.split(" | ")]
     candidates = [p for p in parts if p and not p.startswith(("[", "~/", "/", "<"))
-                  and not re.match(r"^[A-Za-z]:[/\\]", p)]
+                  and not re.match(r"^[A-Za-z]:[/\\]", p)
+                  and not _names_own_directory(p, pane)]
     # Claude's named session is more durable than its transient prompt snippets.
     if candidates and re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+){2,}", candidates[0]):
         return candidates[0].replace("-", " ").capitalize()
@@ -100,12 +118,17 @@ def task_label(pane, tabs):
         if not VAGUE.match(text):
             text = re.sub(r"^(?:can|could|would) (?:you|we) (?:please )?", "", text, flags=re.I)
             return text[:1].upper() + text[1:]
-    tab = tabs.get(pane.get("tab_id"), "")
-    if tab and tab not in {"main", "shell"} and not re.fullmatch(r"(?:💤\s*)?\d+", tab):
-        return tab.replace("-", " ")
+    # A herdr agent name is chosen by whoever started the agent and says which
+    # one this is; a tab label is usually automatic-rename's program name
+    # ("agent"), which every agent tab shares.
     name = pane.get("name") or pane.get("label")
     if name:
-        return name.replace("-", " ")
+        return name
+    # automatic-rename prefixes tabs with their jump key; the agent row is not
+    # a jump target, so the bracket says nothing here.
+    tab = re.sub(r"^\[\d+\]\s*", "", tabs.get(pane.get("tab_id"), ""))
+    if tab and tab not in {"main", "shell"} and not re.fullmatch(r"(?:💤\s*)?\d+", tab):
+        return tab.replace("-", " ")
     return {"agy": "AGY session", "codex": "Codex session", "claude": "Claude session"}.get(
         pane.get("agent"), f"{pane.get('agent', 'Agent')} session")
 

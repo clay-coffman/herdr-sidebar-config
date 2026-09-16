@@ -50,6 +50,26 @@ class SidebarRowsTests(unittest.TestCase):
         pane = {"agent": "agy", "terminal_title_stripped": "[3] ~/Work/project"}
         self.assertEqual(task_label(pane, {}), "AGY session")
 
+    def test_pi_directory_title_falls_through_to_the_agent_name(self):
+        pane = {"agent": "pi", "name": "lum-1018-build",
+                "cwd": "/home/u/.herdr/worktrees/ehr/feat-session-cutover",
+                "terminal_title_stripped": "π - feat-session-cutover"}
+        self.assertEqual(task_label(pane, {"t1": "[1] agent"}), "lum-1018-build")
+
+    def test_pi_directory_title_without_a_name_uses_the_tab(self):
+        pane = {"agent": "pi", "tab_id": "t1", "cwd": "/srv/repo",
+                "terminal_title_stripped": "π - repo"}
+        self.assertEqual(task_label(pane, {"t1": "review"}), "review")
+
+    def test_pi_title_that_is_not_the_directory_still_wins(self):
+        pane = {"agent": "pi", "name": "lum-1018-build", "cwd": "/srv/repo",
+                "terminal_title_stripped": "π - fix the parser"}
+        self.assertEqual(task_label(pane, {}), "Π - fix the parser")
+
+    def test_agent_name_beats_a_program_named_tab(self):
+        pane = {"agent": "pi", "name": "lum-1018-review", "tab_id": "t1"}
+        self.assertEqual(task_label(pane, {"t1": "agent"}), "lum-1018-review")
+
     def test_rows_keep_live_state_and_add_one_group_gap(self):
         panes = [
             {"pane_id": "w1:p1", "workspace_id": "w1", "agent": "codex", "agent_status": "working"},
