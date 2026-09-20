@@ -75,6 +75,7 @@ Setup adds the shortcut only when it is free. Use arrows to select and change;
 | Animated loaders | Off by default; On animates working agents only |
 | Loader style | Dots · Orbit · Pulse |
 | Branch length | Standard `├─` / `└─` (default), or Short `├` / `└` to save one column |
+| Workstream headings | On (default): two or more consecutive spaces labelled `<STREAM> · <task>` share one `STREAM` heading in **Spaces** and their rows drop the prefix. Off: labels as written |
 
 Animation adds redraws at up to eight frames per second. Turning it off restores
 the static indicator and stops animation wakeups.
@@ -86,6 +87,29 @@ the static indicator and stops animation wakeups.
 
 *Open `prefix+,`, choose **Branch length**, then press Enter to apply.
 Short saves one column; Standard restores it. Real interaction in an isolated demo session.*
+
+### Workstream headings in Spaces
+
+Name related spaces `IAM · staff sessions`, `IAM · patient sessions`, `PAT · replay`
+and the Spaces panel shows one `IAM` heading over the first two and `PAT` over the
+third, each row keeping only its own part of the label. Herdr has no grouping
+above the workspace, so this is the label convention doing the work; the
+heading is published as `$hs_stream` on the entry above the run (see
+[architecture](docs/architecture.md#token-contract) for why). Add it as the
+**last** row of your `[ui.sidebar.spaces]` layout:
+
+```toml
+[ui.sidebar.spaces]
+rows = [
+  ["state_icon", { token = "$hs_space", bold = true, dim = false }, { token = "$hs_space_dim", dim = true }],
+  ["branch", "git_status"],
+  [{ token = "$hs_stream", bold = true, dim = false }, { token = "$hs_stream_dim", dim = true }],
+]
+```
+
+A run of one space keeps its full label and gets no heading. Spaces are not
+reordered: a stream split by an unrelated space gets two headings, and the
+very first entry in the panel cannot carry one.
 
 ## What stays the same
 
