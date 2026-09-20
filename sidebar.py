@@ -17,6 +17,12 @@ from runtime import PLUGIN_ID, herdr_binary, icon_mode, logo_for, run_herdr
 STATES = {"working": "◔", "blocked": "?", "done": "✓", "idle": "○", "unknown": "·"}
 # A braille blank occupies a terminal cell but survives metadata trimming.
 BLANK = "\u2800"
+# Workspace labels of the form "<WORKSTREAM> · <task>" share a heading in the
+# Spaces panel. herdr-automatic-rename prefixes labels with a "[N]" jump key.
+WORKSTREAM_SEPARATOR = " · "
+JUMP_KEY = re.compile(r"^\[\d+\]\s*")
+# A heading over one row costs a line and says nothing its prefix does not.
+MIN_STREAM = 2
 HISTORY = {
     "codex": (".codex/history.jsonl", "session_id", "text"),
     "claude": (".claude/history.jsonl", "sessionId", "display"),
@@ -204,6 +210,96 @@ def desired_rows(panes, workspaces, tabs, icons="font", inactive_ids=frozenset()
     return result
 
 
+def workstream_of(label, separator=WORKSTREAM_SEPARATOR):
+    """The label's first separator-delimited token, minus the jump key, or None."""
+    body = JUMP_KEY.sub("", label or "")
+    head, found, rest = body.partition(separator)
+    head = head.strip()
+    return head if found and head and rest.strip() else None
+
+
+def task_of(label, separator=WORKSTREAM_SEPARATOR):
+    """The label with its workstream removed and the jump key kept."""
+    match = JUMP_KEY.match(label or "")
+    key = match.group(0) if match else ""
+    return key + label[len(key):].partition(separator)[2].strip()
+
+
+def sidebar_order(workspaces):
+    """(workspace, indented) pairs in the order Herdr's Spaces panel draws them.
+
+    Herdr groups the workspaces of one repository when two or more are open and
+    one of them is the repository root: the group renders at the first member's
+    position, root first, then the linked worktrees as indented children in
+    native order. Mirrors workspace_entries in herdr's client/shell/sidebar.rs.
+    """
+    members = {}
+    for workspace in workspaces:
+        key = (workspace.get("worktree") or {}).get("repo_key")
+        if key:
+            members.setdefault(key, []).append(workspace)
+    grouped = {key for key, group in members.items() if len(group) >= 2
+               and any(not member["worktree"].get("is_linked_worktree") for member in group)}
+    order, emitted = [], set()
+    for workspace in workspaces:
+        key = (workspace.get("worktree") or {}).get("repo_key")
+        if key not in grouped:
+            order.append((workspace, False))
+            continue
+        if key in emitted:
+            continue
+        emitted.add(key)
+        parent = next((m for m in members[key] if not m["worktree"].get("is_linked_worktree")), workspace)
+        order.append((parent, False))
+        order.extend((member, True) for member in members[key] if member is not parent)
+    return order
+
+
+def desired_space_rows(workspaces, inactive_ids=frozenset(), headings=True, separator=WORKSTREAM_SEPARATOR):
+    """Per-workspace hs_space* tokens: the label, and a workstream heading.
+
+    Consecutive workspaces whose labels share a first token form a workstream.
+    The heading is published as a trailing row on the entry *before* the
+    stream's first workspace, the same way hs_gap precedes a group heading in
+    the agents panel: Herdr draws an entry's rows after the first two cells
+    further right, so a heading as a first row would push that one workspace's
+    icon and label out of line with its neighbours. Under a heading the label
+    drops its workstream prefix and keeps its jump key. When the previous entry
+    is the repository root (a top-level row) and the stream is its indented
+    children, blank padding moves the heading under the children's tree. A
+    run shorter than MIN_STREAM keeps its full labels and gets no heading.
+    """
+    entries = sidebar_order(workspaces)
+    result = {}
+    for workspace, _ in entries:
+        result[workspace["workspace_id"]] = {"hs_space": None, "hs_space_dim": None,
+                                              "hs_stream": None, "hs_stream_dim": None}
+    runs, current = [], None
+    for index, (workspace, indented) in enumerate(entries):
+        stream = workstream_of(workspace["label"], separator) if headings else None
+        if stream is not None and current is not None and current[0] == stream:
+            current[1].append(index)
+        else:
+            current = [stream, [index]]
+            runs.append(current)
+    for stream, indices in runs:
+        first = indices[0]
+        placed = stream is not None and first > 0 and len(indices) >= MIN_STREAM
+        if placed:
+            previous, previous_indented = entries[first - 1]
+            heading = stream
+            if not previous_indented and entries[first][1]:
+                heading = BLANK * 5 + heading
+            key = "hs_stream_dim" if all(entries[i][0]["workspace_id"] in inactive_ids for i in indices) else "hs_stream"
+            result[previous["workspace_id"]][key] = heading
+        for index in indices:
+            workspace = entries[index][0]
+            label = task_of(workspace["label"], separator) if placed else workspace["label"]
+            key = "hs_space_dim" if workspace["workspace_id"] in inactive_ids else "hs_space"
+            result[workspace["workspace_id"]][key] = label
+    return result
+
+
 def read_state(path):
     try:
         return json.loads(path.read_text())
@@ -251,11 +347,11 @@ def refresh(clear=False, restore_view=False):
             for key, value in changes.items():
                 args += ["--token", key + "=" + value] if value is not None else ["--clear-token", key]
             run_herdr(herdr, *args)
+        space_rows = desired_space_rows(workspaces, activity.inactive_ids,
+                                        headings=settings["workstream_headings"])
         for workspace in workspaces:
             wid = workspace["workspace_id"]
-            dim = wid in activity.inactive_ids
-            wanted = {"hs_space": None if dim else workspace["label"],
-                      "hs_space_dim": workspace["label"] if dim else None}
+            wanted = space_rows[wid]
             if clear:
                 wanted = dict.fromkeys(wanted)
             changes = changed_tokens(workspace.get("tokens") or {}, wanted)

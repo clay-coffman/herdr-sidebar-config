@@ -68,7 +68,8 @@ Publisher: `plugin:testy-cool.herdr-sidebar`.
 | `hs_gap` | Blank row after the last agent before another workspace |
 | `hs_terminals` | Names of terminal-only tabs in this workspace |
 | `hs_*_dim` | Mutually exclusive dim versions of agent/group display tokens |
-| `hs_space`, `hs_space_dim` | Mutually exclusive workspace labels in Spaces |
+| `hs_space`, `hs_space_dim` | Mutually exclusive workspace labels in Spaces; under a workstream heading the label drops its `<STREAM> · ` prefix and keeps a leading `[N]` jump key |
+| `hs_stream`, `hs_stream_dim` | Workstream heading, published on the entry *before* the first of two or more consecutive spaces whose labels start with the same `<STREAM> · ` token; dim when every space in the run is inactive. Trailing row on purpose: Herdr draws an entry's rows after the first two cells further right, so a heading as a first row would push that one space's icon and label out of line. On a repository root followed by its indented worktrees the value carries five braille blanks so the heading sits under the children's tree |
 | `hs_title` | Optional user-owned title override; read but never written or cleared by this plugin |
 
 Absent generated values are cleared, including when a pane stops being an
