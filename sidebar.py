@@ -15,6 +15,15 @@ from ordering import order_groups, apply_view
 from runtime import PLUGIN_ID, herdr_binary, icon_mode, logo_for, run_herdr
 
 STATES = {"working": "◔", "blocked": "?", "done": "✓", "idle": "○", "unknown": "·"}
+# A workspace's overall status: someone waiting on the user beats work in
+# progress, which beats a finished agent, because one finished worker beside
+# three working ones is a workspace that is still working. Herdr's own
+# workspace glyph ranks a finished agent above a working one.
+STATE_PRECEDENCE = ("blocked", "working", "done", "idle", "unknown")
+# Agent rows published under a workspace in the Spaces panel; a fifth agent
+# and beyond fold into the last row.
+MAX_AGENT_ROWS = 4
+AGENT_ROW_KEYS = tuple(f"hs_agent_{index}" for index in range(1, MAX_AGENT_ROWS + 1))
 # A braille blank occupies a terminal cell but survives metadata trimming.
 BLANK = "\u2800"
 # Workspace labels of the form "<WORKSTREAM> · <task>" share a heading in the
@@ -153,7 +162,55 @@ def desired_headers(panes, workspaces):
     return result
 
 
-def desired_rows(panes, workspaces, tabs, icons="font", inactive_ids=frozenset(), working_glyph="◔", branch_length="standard"):
+def agent_status(pane):
+    status = pane.get("agent_status", "unknown")
+    return status if status in STATES else "unknown"
+
+
+def workspace_state(statuses):
+    """The overall status of a workspace's agents by STATE_PRECEDENCE."""
+    statuses = set(statuses)
+    return next((state for state in STATE_PRECEDENCE if state in statuses), "unknown")
+
+
+def desired_agent_rows(panes, workspaces, tabs, inactive_ids=frozenset(), labels=None):
+    """Per-workspace hs_state and hs_agent_N tokens for the Spaces panel.
+
+    hs_state is the workspace's overall glyph by STATE_PRECEDENCE; hs_agent_1..
+    hs_agent_MAX_AGENT_ROWS are one "<glyph> <task>" row per agent in snapshot
+    (tab, then pane) order, the same labels the agents panel shows. More agents
+    than rows fold into the last row as "… +N more". A workspace without agents
+    gets hs_state "·" and no agent rows, so Herdr draws none: a row whose
+    tokens are all absent is dropped. Inactive workspaces publish the _dim
+    twins instead, like hs_space/hs_space_dim. `labels` maps pane_id to a
+    precomputed task label, so a refresh reads each pane's title once.
+    """
+    agents = {workspace["workspace_id"]: [] for workspace in workspaces}
+    for pane in panes:
+        if pane.get("agent"):
+            agents.setdefault(pane["workspace_id"], []).append(pane)
+    result = {}
+    for wid, members in agents.items():
+        values = {"hs_state": None, "hs_state_dim": None}
+        for key in AGENT_ROW_KEYS:
+            values[key] = values[key + "_dim"] = None
+        statuses = [agent_status(pane) for pane in members]
+        rows = []
+        for pane, status in zip(members, statuses):
+            label = labels[pane["pane_id"]] if labels and pane["pane_id"] in labels else task_label(pane, tabs)
+            rows.append(STATES[status] + " " + label)
+        if len(rows) > MAX_AGENT_ROWS:
+            folded = len(rows) - (MAX_AGENT_ROWS - 1)
+            rows = rows[:MAX_AGENT_ROWS - 1] + [f"… +{folded} more"]
+        suffix = "_dim" if wid in inactive_ids else ""
+        values["hs_state" + suffix] = STATES[workspace_state(statuses)]
+        for key, row in zip(AGENT_ROW_KEYS, rows):
+            values[key + suffix] = row
+        result[wid] = values
+    return result
+
+
+def desired_rows(panes, workspaces, tabs, icons="font", inactive_ids=frozenset(), working_glyph="◔", branch_length="standard", labels=None):
     headers = desired_headers(panes, workspaces)
     groups = {}
     tab_ids = {}
@@ -195,11 +252,10 @@ def desired_rows(panes, workspaces, tabs, icons="font", inactive_ids=frozenset()
             else:
                 prefix = "" if heading else BLANK * 2
             values["hs_logo"] = prefix + logo
-            status = pane.get("agent_status", "unknown")
-            if status not in STATES:
-                status = "unknown"
+            status = agent_status(pane)
             mark = working_glyph if status == "working" else STATES[status]
-            values[f"hs_{status}"] = mark + " " + task_label(pane, tabs)
+            label = labels[pane["pane_id"]] if labels and pane["pane_id"] in labels else task_label(pane, tabs)
+            values[f"hs_{status}"] = mark + " " + label
             previous = pane["pane_id"]
         # Mutually exclusive tokens let static Herdr styles dim a whole group.
         for key in ["hs_group", "hs_tab", "hs_logo", *[f"hs_{s}" for s in STATES]]:
@@ -326,9 +382,10 @@ def refresh(clear=False, restore_view=False):
         from animation import glyph, cache_rows
         ordered_panes, ranks = order_groups(panes, workspaces, settings["order"])
         animated = settings["animated_loaders"] and not clear
+        labels = {pane["pane_id"]: task_label(pane, tabs) for pane in panes if pane.get("agent")}
         desired = desired_rows(ordered_panes, workspaces, tabs, icon_mode(), activity.inactive_ids,
                                working_glyph=glyph(time.monotonic(), settings["loader_style"]) if animated else "◔",
-                               branch_length=settings["branch_length"])
+                               branch_length=settings["branch_length"], labels=labels)
         for pane in panes:
             desired[pane["pane_id"]]["hs_workspace_rank"] = ranks.get(pane["workspace_id"]) if pane.get("agent") else None
         rows = cache_rows(panes, desired, settings["loader_style"]) if animated else []
@@ -349,9 +406,10 @@ def refresh(clear=False, restore_view=False):
             run_herdr(herdr, *args)
         space_rows = desired_space_rows(workspaces, activity.inactive_ids,
                                         headings=settings["workstream_headings"])
+        agent_rows = desired_agent_rows(panes, workspaces, tabs, activity.inactive_ids, labels=labels)
         for workspace in workspaces:
             wid = workspace["workspace_id"]
-            wanted = space_rows[wid]
+            wanted = {**space_rows[wid], **agent_rows.get(wid, {})}
             if clear:
                 wanted = dict.fromkeys(wanted)
             changes = changed_tokens(workspace.get("tokens") or {}, wanted)
