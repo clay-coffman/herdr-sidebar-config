@@ -70,6 +70,8 @@ Publisher: `plugin:testy-cool.herdr-sidebar`.
 | `hs_*_dim` | Mutually exclusive dim versions of agent/group display tokens |
 | `hs_space`, `hs_space_dim` | Mutually exclusive workspace labels in Spaces; under a workstream heading the label drops its `<STREAM> · ` prefix and keeps a leading `[N]` jump key |
 | `hs_stream`, `hs_stream_dim` | Workstream heading, published on the entry *before* the first of two or more consecutive spaces whose labels start with the same `<STREAM> · ` token; dim when every space in the run is inactive. Trailing row on purpose: Herdr draws an entry's rows after the first two cells further right, so a heading as a first row would push that one space's icon and label out of line. On a repository root followed by its indented worktrees the value carries five braille blanks so the heading sits under the children's tree |
+| `hs_state`, `hs_state_dim` | The workspace's overall glyph for a Spaces row, with the precedence blocked > working > done > idle > unknown (`?`, `◔`, `✓`, `○`, `·`): one finished worker beside working ones still reads working, where Herdr's own `state_icon` ranks a finished agent above a working one. `·` for a workspace without agents. Exactly one of the pair is set; dim when the workspace is inactive |
+| `hs_agent_1` … `hs_agent_4`, and `_dim` twins | One `<glyph> <task>` row per agent in snapshot (tab, then pane) order, the same labels the agents panel shows; a fifth agent and beyond fold into the last row as `… +N more`. Absent beyond the workspace's agent count, so Herdr draws no row for them |
 | `hs_title` | Optional user-owned title override; read but never written or cleared by this plugin |
 
 Absent generated values are cleared, including when a pane stops being an
