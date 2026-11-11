@@ -82,9 +82,9 @@ class SidebarRowsTests(unittest.TestCase):
         self.assertIsNone(rows["w1:p2"]["hs_group"])
         self.assertIsNotNone(rows["w1:p2"]["hs_gap"])
         self.assertIsNone(rows["w2:p1"]["hs_gap"])
-        self.assertTrue(rows["w1:p1"]["hs_working"].startswith("◔ "))
-        self.assertTrue(rows["w1:p2"]["hs_blocked"].startswith("? "))
-        self.assertTrue(rows["w2:p1"]["hs_done"].startswith("✓ "))
+        self.assertTrue(rows["w1:p1"]["hs_working"].startswith("◐ "))
+        self.assertTrue(rows["w1:p2"]["hs_blocked"].startswith("◉ "))
+        self.assertTrue(rows["w2:p1"]["hs_done"].startswith("● "))
         self.assertIsNone(rows["w2:p1"]["hs_working"])
 
     def test_unchanged_rows_do_not_publish_again(self):
@@ -104,7 +104,7 @@ class SidebarRowsTests(unittest.TestCase):
         self.assertEqual(dim["p1"]["hs_group_dim"], "project")
         self.assertEqual(dim["p1"]["hs_terminals"], "terminals: explorer")
         self.assertIsNone(dim["p1"]["hs_idle"])
-        self.assertTrue(dim["p1"]["hs_idle_dim"].startswith("○ "))
+        self.assertTrue(dim["p1"]["hs_idle_dim"].startswith("✓ "))
         panes[0]["agent_status"] = "working"
         bright = desired_rows(panes, spaces, tabs)
         self.assertEqual(bright["p1"]["hs_group"], "project")

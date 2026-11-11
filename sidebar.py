@@ -14,7 +14,13 @@ from preferences import load as load_preferences
 from ordering import order_groups, apply_view
 from runtime import PLUGIN_ID, herdr_binary, icon_mode, logo_for, run_herdr
 
-STATES = {"working": "◔", "blocked": "?", "done": "✓", "idle": "○", "unknown": "·"}
+# The status set herdr-bar, sesh and herdr-nav share, so one glyph means one
+# thing in every picker and in the sidebar: blocked ◉, working ◐, done ●,
+# idle ✓, unknown ○. A workspace without agents is ·, as a plain tab is in
+# herdr-bar. Herdr's own `status_indicators = "symbols"` set (× ◐ ✓ ○) is not
+# used because ✓ means done there.
+STATES = {"working": "◐", "blocked": "◉", "done": "●", "idle": "✓", "unknown": "○"}
+NO_AGENTS = "·"
 # A workspace's overall status: someone waiting on the user beats work in
 # progress, which beats a finished agent, because one finished worker beside
 # three working ones is a workspace that is still working. Herdr's own
@@ -203,14 +209,14 @@ def desired_agent_rows(panes, workspaces, tabs, inactive_ids=frozenset(), labels
             folded = len(rows) - (MAX_AGENT_ROWS - 1)
             rows = rows[:MAX_AGENT_ROWS - 1] + [f"… +{folded} more"]
         suffix = "_dim" if wid in inactive_ids else ""
-        values["hs_state" + suffix] = STATES[workspace_state(statuses)]
+        values["hs_state" + suffix] = STATES[workspace_state(statuses)] if members else NO_AGENTS
         for key, row in zip(AGENT_ROW_KEYS, rows):
             values[key + suffix] = row
         result[wid] = values
     return result
 
 
-def desired_rows(panes, workspaces, tabs, icons="font", inactive_ids=frozenset(), working_glyph="◔", branch_length="standard", labels=None):
+def desired_rows(panes, workspaces, tabs, icons="font", inactive_ids=frozenset(), working_glyph=STATES["working"], branch_length="standard", labels=None):
     headers = desired_headers(panes, workspaces)
     groups = {}
     tab_ids = {}
@@ -384,7 +390,7 @@ def refresh(clear=False, restore_view=False):
         animated = settings["animated_loaders"] and not clear
         labels = {pane["pane_id"]: task_label(pane, tabs) for pane in panes if pane.get("agent")}
         desired = desired_rows(ordered_panes, workspaces, tabs, icon_mode(), activity.inactive_ids,
-                               working_glyph=glyph(time.monotonic(), settings["loader_style"]) if animated else "◔",
+                               working_glyph=glyph(time.monotonic(), settings["loader_style"]) if animated else STATES["working"],
                                branch_length=settings["branch_length"], labels=labels)
         for pane in panes:
             desired[pane["pane_id"]]["hs_workspace_rank"] = ranks.get(pane["workspace_id"]) if pane.get("agent") else None

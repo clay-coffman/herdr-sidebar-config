@@ -60,9 +60,9 @@ class RefreshWiringTests(unittest.TestCase):
 
     def test_first_refresh_publishes_state_and_agent_rows_per_workspace(self):
         writes = dict(self.run_refresh(snapshot()))
-        self.assertEqual(writes["w1"]["hs_state"], "?")
+        self.assertEqual(writes["w1"]["hs_state"], "◉")
         self.assertEqual([writes["w1"][f"hs_agent_{i}"] for i in range(1, 5)],
-                         ["✓ agent 1", "◔ agent 2", "? agent 3", "… +3 more"])
+                         ["● agent 1", "◐ agent 2", "◉ agent 3", "… +3 more"])
         self.assertEqual(writes["w1"]["hs_space"], "[1] task")
         self.assertEqual(writes["w2"]["hs_state"], "·")
         self.assertFalse(any(key.startswith("hs_agent") for key in writes["w2"]))
