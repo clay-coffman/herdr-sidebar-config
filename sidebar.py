@@ -7,12 +7,13 @@ import re
 import sys
 import time
 import tomllib
+import unicodedata
 from pathlib import Path
 from inactivity import update_inactivity
 from activity_titles import activity_title
 from preferences import load as load_preferences
 from ordering import order_groups, apply_view
-from runtime import PLUGIN_ID, herdr_binary, icon_mode, logo_for, run_herdr
+from runtime import PLUGIN_ID, herdr_binary, icon_mode, logo_for, run_herdr, sidebar_width
 
 # The status set herdr-bar, sesh and herdr-nav share, so one glyph means one
 # thing in every picker and in the sidebar: blocked ◉, working ◐, done ●,
@@ -38,6 +39,13 @@ WORKSTREAM_SEPARATOR = " · "
 JUMP_KEY = re.compile(r"^\[\d+\]\s*")
 # A heading over one row costs a line and says nothing its prefix does not.
 MIN_STREAM = 2
+# Herdr gives a Space's name row the sidebar width less its divider, a possible
+# scrollbar and two columns of right margin, then one column of left padding,
+# or a six-column tree prefix for an indented worktree. Custom tokens are
+# joined with " · ". A task with less room than MIN_TASK is left out.
+NAME_ROW_MARGIN = {False: 5, True: 10}
+SEPARATOR_WIDTH = 3
+MIN_TASK = 6
 HISTORY = {
     "codex": (".codex/history.jsonl", "session_id", "text"),
     "claude": (".claude/history.jsonl", "sessionId", "display"),
@@ -229,6 +237,44 @@ def desired_agent_rows(panes, workspaces, tabs, inactive_ids=frozenset(), labels
             values[key + suffix] = row
         result[wid] = values
     return result
+
+
+def display_width(text):
+    """Terminal cells for text: wide characters take two, combining marks none."""
+    return sum(0 if unicodedata.combining(ch) or ch in "\u200d\ufe0f"
+               else 2 if unicodedata.east_asian_width(ch) in "WF" else 1 for ch in text)
+
+
+def fit_task(task, parts, indented, width):
+    """The task cut to the room the name row leaves after `parts`, or None.
+
+    Herdr shares a row that is too long among all its text tokens a cell at a
+    time, so a long task would cut the workspace name as much as itself. Cutting
+    the task here first keeps the name whole at the configured sidebar width.
+    """
+    used = sum(display_width(part) for part in parts) + SEPARATOR_WIDTH * len(parts)
+    room = width - NAME_ROW_MARGIN[indented] - used
+    if room < MIN_TASK:
+        return None
+    if display_width(task) <= room:
+        return task
+    kept, cells = "", 0
+    for ch in task:
+        cells += display_width(ch)
+        if cells > room - 1:
+            break
+        kept += ch
+    return kept.rstrip(" ,.;:-") + "…"
+
+
+def fit_name_row(values, stack, indented, width):
+    """Fit hs_task (or its dim twin) beside the state glyph, git-stack mark and label."""
+    for suffix in ("", "_dim"):
+        task = values.get("hs_task" + suffix)
+        if task:
+            parts = [values.get("hs_state" + suffix), stack, values.get("hs_space" + suffix)]
+            values["hs_task" + suffix] = fit_task(task, [part for part in parts if part], indented, width)
+    return values
 
 
 def desired_rows(panes, workspaces, tabs, icons="font", inactive_ids=frozenset(), working_glyph=STATES["working"], branch_length="standard", labels=None):
@@ -428,12 +474,16 @@ def refresh(clear=False, restore_view=False):
         space_rows = desired_space_rows(workspaces, activity.inactive_ids,
                                         headings=settings["workstream_headings"])
         agent_rows = desired_agent_rows(panes, workspaces, tabs, activity.inactive_ids, labels=labels)
+        width = sidebar_width()
+        indented = {workspace["workspace_id"]: flag for workspace, flag in sidebar_order(workspaces)}
         for workspace in workspaces:
             wid = workspace["workspace_id"]
-            wanted = {**space_rows[wid], **agent_rows.get(wid, {})}
+            tokens = workspace.get("tokens") or {}
+            wanted = fit_name_row({**space_rows[wid], **agent_rows.get(wid, {})},
+                                  tokens.get("gstk_stack"), indented.get(wid, False), width)
             if clear:
                 wanted = dict.fromkeys(wanted)
-            changes = changed_tokens(workspace.get("tokens") or {}, wanted)
+            changes = changed_tokens(tokens, wanted)
             if changes:
                 args = ["workspace", "report-metadata", wid, "--source", source]
                 for key, value in changes.items():

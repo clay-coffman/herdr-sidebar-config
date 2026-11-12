@@ -1,5 +1,6 @@
 import unittest
-from sidebar import AGENT_ROW_KEYS, MAX_AGENT_ROWS, desired_agent_rows, names_only_the_agent, workspace_state
+from sidebar import (AGENT_ROW_KEYS, MAX_AGENT_ROWS, desired_agent_rows, display_width, fit_name_row,
+                     fit_task, names_only_the_agent, workspace_state)
 
 
 def pane(pid, wid, agent="codex", status="idle", name=None):
@@ -105,3 +106,33 @@ class AgentRowsTests(unittest.TestCase):
         expected = {"hs_state", "hs_state_dim", "hs_task", "hs_task_dim"} | {key for k in AGENT_ROW_KEYS for key in (k, k + "_dim")}
         self.assertEqual(set(result["w1"]), expected)
         self.assertEqual(set(result["w2"]), expected)
+
+
+class FitTaskTests(unittest.TestCase):
+    # At 46 columns a top-level name row has 41 cells: "◐ · [1] ~ · " takes 12.
+    def test_a_task_that_fits_is_kept_whole(self):
+        self.assertEqual(fit_task("pi latency experiment", ["◐", "[1] ~"], False, 46), "pi latency experiment")
+
+    def test_a_long_task_is_cut_to_the_room_left_so_the_name_stays_whole(self):
+        task = "Fold a workspace's only agent into its Spaces name row"
+        fitted = fit_task(task, ["◐", "[1] ~"], False, 46)
+        self.assertEqual(display_width(fitted), 29)
+        self.assertTrue(fitted.endswith("…") and task.startswith(fitted[:-1]))
+        indented = fit_task(task, ["◐", "[1] ~"], True, 46)
+        self.assertEqual(display_width(indented), 24, "a worktree's tree prefix costs five more cells")
+
+    def test_too_little_room_leaves_the_task_out(self):
+        name = "[7] LUM-2291 Restricted-access charts review"
+        self.assertIsNone(fit_task("Fix it", ["◐", name], False, 46))
+
+    def test_the_cut_does_not_end_on_punctuation_and_counts_wide_characters(self):
+        self.assertEqual(fit_task("abcd, efghijklmnop", ["◐", "x" * 27], False, 46), "abcd…")
+        self.assertEqual(display_width("💤 漢字"), 7)
+        self.assertEqual(display_width(fit_task("漢字漢字漢字漢字漢字", ["◐", "x" * 26], False, 46)), 7)
+
+    def test_the_git_stack_mark_and_dim_twin_are_counted(self):
+        values = {"hs_state": None, "hs_state_dim": "◐", "hs_space": None, "hs_space_dim": "[1] ~",
+                  "hs_task": None, "hs_task_dim": "x" * 40}
+        fit_name_row(values, "▲2", False, 46)
+        self.assertIsNone(values["hs_task"])
+        self.assertEqual(display_width(values["hs_task_dim"]), 24)

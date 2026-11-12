@@ -32,6 +32,24 @@ def run_herdr(herdr, *args):
     return json.loads(result.stdout) if result.stdout.strip() else {}
 
 
+def sidebar_width():
+    """Herdr's configured sidebar width, clamped to its bounds as Herdr clamps it.
+
+    A width a client saved by dragging the divider is client-side and unknown here.
+    """
+    xdg = Path(os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config")))
+    path = Path(os.environ.get("HERDR_CONFIG_PATH", str(xdg / "herdr/config.toml"))).expanduser()
+    try:
+        ui = tomllib.loads(path.read_text()).get("ui", {})
+    except (OSError, ValueError):
+        ui = {}
+    low, high = ui.get("sidebar_min_width", 18), ui.get("sidebar_max_width", 36)
+    if not (isinstance(low, int) and isinstance(high, int) and 0 < low <= high):
+        low, high = 18, 36
+    width = ui.get("sidebar_width", 26)
+    return min(max(width if isinstance(width, int) else 26, low), high)
+
+
 def icon_mode():
     config_dir = os.environ.get("HERDR_PLUGIN_CONFIG_DIR")
     path = Path(config_dir) / "config.toml" if config_dir else None

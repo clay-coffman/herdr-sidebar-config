@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from runtime import icon_mode, logo_for, herdr_binary
+from runtime import icon_mode, logo_for, herdr_binary, sidebar_width
 from sidebar import desired_rows, task_label
 
 
@@ -20,6 +20,20 @@ class RuntimeTests(unittest.TestCase):
                 Path(directory, "config.toml").write_text('icons = "typo"\n')
                 with self.assertRaises(RuntimeError):
                     icon_mode()
+
+    def test_sidebar_width_is_read_and_clamped_like_herdr(self):
+        with tempfile.TemporaryDirectory() as directory:
+            config = Path(directory, "config.toml")
+            with patch.dict(os.environ, {"HERDR_CONFIG_PATH": str(config)}):
+                self.assertEqual(sidebar_width(), 26, "a missing config gives Herdr's default")
+                config.write_text("[ui]\nsidebar_width = 46\nsidebar_max_width = 52\n")
+                self.assertEqual(sidebar_width(), 46)
+                config.write_text("[ui]\nsidebar_width = 46\n")
+                self.assertEqual(sidebar_width(), 36, "the default maximum clamps it")
+                config.write_text("[ui]\nsidebar_width = 40\nsidebar_min_width = 50\nsidebar_max_width = 30\n")
+                self.assertEqual(sidebar_width(), 36, "invalid bounds fall back to the defaults")
+                config.write_text("not toml [")
+                self.assertEqual(sidebar_width(), 26)
 
     def test_replaced_binary_suffix_is_removed(self):
         with patch.dict(os.environ, {"HERDR_BIN_PATH": "/bin/herdr (deleted)"}):

@@ -54,6 +54,7 @@ class RefreshWiringTests(unittest.TestCase):
                 patch.dict(os.environ, {"HERDR_PLUGIN_STATE_DIR": state, "HERDR_PLUGIN_CONFIG_DIR": state}), \
                 patch("sidebar.run_herdr", fake_run_herdr), patch("sidebar.herdr_binary", return_value="herdr"), \
                 patch("sidebar.icon_mode", return_value="text"), patch("sidebar.apply_view"), \
+                patch("sidebar.sidebar_width", return_value=46), \
                 patch("deadline.ensure_timer"):
             sidebar.refresh(clear=clear)
         return [parse(c) for c in calls if c[:2] == ("workspace", "report-metadata")]
@@ -69,6 +70,18 @@ class RefreshWiringTests(unittest.TestCase):
         self.assertNotIn("pr", writes["w2"], "another plugin's token is never written or cleared")
         for tokens in writes.values():
             self.assertFalse(any(value == "" for value in tokens.values()), "no empty-string token is ever sent")
+
+    def test_a_single_agent_folds_into_the_name_row_and_is_fitted(self):
+        snap = snapshot()
+        data = snap["result"]["snapshot"]
+        data["panes"] = [{"pane_id": "w1:p1", "workspace_id": "w1", "tab_id": "w1:t1",
+                          "tokens": {"hs_title": "Fold a workspace's only agent into its Spaces name row"}},
+                         data["panes"][-1]]
+        data["agents"] = [{"pane_id": "w1:p1", "agent": "pi", "agent_status": "working"}]
+        writes = dict(self.run_refresh(snap))
+        self.assertEqual(writes["w1"]["hs_state"], "◐")
+        self.assertEqual(writes["w1"]["hs_task"], "Fold a workspace's only a…")
+        self.assertFalse(any(key.startswith("hs_agent") for key in writes["w1"]))
 
     def test_an_unchanged_second_refresh_writes_nothing(self):
         first = dict(self.run_refresh(snapshot()))
