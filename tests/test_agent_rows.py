@@ -1,5 +1,5 @@
 import unittest
-from sidebar import AGENT_ROW_KEYS, MAX_AGENT_ROWS, desired_agent_rows, workspace_state
+from sidebar import AGENT_ROW_KEYS, MAX_AGENT_ROWS, desired_agent_rows, names_only_the_agent, workspace_state
 
 
 def pane(pid, wid, agent="codex", status="idle", name=None):
@@ -41,6 +41,27 @@ class AgentRowsTests(unittest.TestCase):
                          ["● lead", "◐ build: api", "✓ review", None])
         self.assertIsNone(result["w1"]["hs_state_dim"])
         self.assertTrue(all(result["w1"][key + "_dim"] is None for key in AGENT_ROW_KEYS))
+        self.assertIsNone(result["w1"]["hs_task"], "several agents keep their own rows")
+
+    def test_a_single_agent_folds_into_the_name_row(self):
+        result = rows([pane("w1:p1", "w1", status="working", name="lead")],
+                      labels={"w1:p1": "Fix the sidebar"})
+        self.assertEqual(result["w1"]["hs_state"], "◐")
+        self.assertEqual(result["w1"]["hs_task"], "Fix the sidebar")
+        self.assertTrue(all(result["w1"][key] is None for key in AGENT_ROW_KEYS))
+
+    def test_a_single_agent_whose_task_only_names_it_shows_no_task(self):
+        for label in ["pi", "Pi", "pi session", ""]:
+            result = rows([pane("w1:p1", "w1", agent="pi", status="working")], labels={"w1:p1": label})
+            self.assertIsNone(result["w1"]["hs_task"], label)
+            self.assertEqual(result["w1"]["hs_state"], "◐")
+        result = rows([pane("w1:p1", "w1", agent="codex", status="idle")])
+        self.assertIsNone(result["w1"]["hs_task"], "the generic 'Codex session' fallback")
+
+    def test_names_only_the_agent_keeps_real_tasks(self):
+        self.assertTrue(names_only_the_agent("Claude session", "claude"))
+        self.assertFalse(names_only_the_agent("pi latency experiment", "pi"))
+        self.assertFalse(names_only_the_agent("review", "pi"))
 
     def test_shell_only_workspace_has_the_no_agents_glyph_and_no_rows(self):
         result = rows([pane("w2:p1", "w2", agent=None)])
@@ -66,17 +87,21 @@ class AgentRowsTests(unittest.TestCase):
         result = rows([pane("w1:p1", "w1", status="done", name="lead")], inactive={"w1"})
         self.assertIsNone(result["w1"]["hs_state"])
         self.assertEqual(result["w1"]["hs_state_dim"], "●")
-        self.assertIsNone(result["w1"]["hs_agent_1"])
-        self.assertEqual(result["w1"]["hs_agent_1_dim"], "● lead")
+        self.assertIsNone(result["w1"]["hs_task"])
+        self.assertEqual(result["w1"]["hs_task_dim"], "lead")
+        several = rows([pane("w1:p1", "w1", status="done", name="lead"),
+                        pane("w1:p2", "w1", status="idle", name="review")], inactive={"w1"})
+        self.assertIsNone(several["w1"]["hs_agent_1"])
+        self.assertEqual(several["w1"]["hs_agent_1_dim"], "● lead")
 
     def test_precomputed_labels_are_used_and_unknown_status_is_normalised(self):
         result = rows([pane("w1:p1", "w1", status="thinking", name="ignored")],
                       labels={"w1:p1": "Fix the sidebar"})
-        self.assertEqual(result["w1"]["hs_agent_1"], "○ Fix the sidebar")
+        self.assertEqual(result["w1"]["hs_task"], "Fix the sidebar")
         self.assertEqual(result["w1"]["hs_state"], "○")
 
     def test_every_token_has_a_key_so_clearing_removes_them(self):
         result = rows([pane("w1:p1", "w1", status="working", name="lead")])
-        expected = {"hs_state", "hs_state_dim"} | {key for k in AGENT_ROW_KEYS for key in (k, k + "_dim")}
+        expected = {"hs_state", "hs_state_dim", "hs_task", "hs_task_dim"} | {key for k in AGENT_ROW_KEYS for key in (k, k + "_dim")}
         self.assertEqual(set(result["w1"]), expected)
         self.assertEqual(set(result["w2"]), expected)

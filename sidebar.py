@@ -179,17 +179,28 @@ def workspace_state(statuses):
     return next((state for state in STATE_PRECEDENCE if state in statuses), "unknown")
 
 
-def desired_agent_rows(panes, workspaces, tabs, inactive_ids=frozenset(), labels=None):
-    """Per-workspace hs_state and hs_agent_N tokens for the Spaces panel.
+def names_only_the_agent(label, agent):
+    """True when a task label says no more than which agent it is ("pi")."""
+    text = (label or "").strip().lower()
+    agent = (agent or "").lower()
+    return not text or text in {agent, agent + " session"}
 
-    hs_state is the workspace's overall glyph by STATE_PRECEDENCE; hs_agent_1..
-    hs_agent_MAX_AGENT_ROWS are one "<glyph> <task>" row per agent in snapshot
-    (tab, then pane) order, the same labels the agents panel shows. More agents
-    than rows fold into the last row as "… +N more". A workspace without agents
-    gets hs_state "·" and no agent rows, so Herdr draws none: a row whose
-    tokens are all absent is dropped. Inactive workspaces publish the _dim
-    twins instead, like hs_space/hs_space_dim. `labels` maps pane_id to a
-    precomputed task label, so a refresh reads each pane's title once.
+
+def desired_agent_rows(panes, workspaces, tabs, inactive_ids=frozenset(), labels=None):
+    """Per-workspace hs_state, hs_task and hs_agent_N tokens for the Spaces panel.
+
+    hs_state is the workspace's overall glyph by STATE_PRECEDENCE. A workspace
+    with exactly one agent folds it into its name row: hs_state is already that
+    agent's glyph, so its task is published as hs_task for the end of the name
+    row, and is left out when it only names the agent ("pi"). With two or more
+    agents, hs_agent_1..hs_agent_MAX_AGENT_ROWS are one "<glyph> <task>" row per
+    agent in snapshot (tab, then pane) order, the same labels the agents panel
+    shows, and more agents than rows fold into the last row as "… +N more". A
+    workspace without agents gets hs_state "·" and neither, so Herdr draws no
+    agent rows: a row whose tokens are all absent is dropped. Inactive
+    workspaces publish the _dim twins instead, like hs_space/hs_space_dim.
+    `labels` maps pane_id to a precomputed task label, so a refresh reads each
+    pane's title once.
     """
     agents = {workspace["workspace_id"]: [] for workspace in workspaces}
     for pane in panes:
@@ -197,19 +208,23 @@ def desired_agent_rows(panes, workspaces, tabs, inactive_ids=frozenset(), labels
             agents.setdefault(pane["workspace_id"], []).append(pane)
     result = {}
     for wid, members in agents.items():
-        values = {"hs_state": None, "hs_state_dim": None}
+        values = {"hs_state": None, "hs_state_dim": None, "hs_task": None, "hs_task_dim": None}
         for key in AGENT_ROW_KEYS:
             values[key] = values[key + "_dim"] = None
         statuses = [agent_status(pane) for pane in members]
-        rows = []
-        for pane, status in zip(members, statuses):
-            label = labels[pane["pane_id"]] if labels and pane["pane_id"] in labels else task_label(pane, tabs)
-            rows.append(STATES[status] + " " + label)
+        tasks = [labels[pane["pane_id"]] if labels and pane["pane_id"] in labels else task_label(pane, tabs)
+                 for pane in members]
+        suffix = "_dim" if wid in inactive_ids else ""
+        values["hs_state" + suffix] = STATES[workspace_state(statuses)] if members else NO_AGENTS
+        if len(members) == 1:
+            if not names_only_the_agent(tasks[0], members[0].get("agent")):
+                values["hs_task" + suffix] = tasks[0]
+            result[wid] = values
+            continue
+        rows = [STATES[status] + " " + task for status, task in zip(statuses, tasks)]
         if len(rows) > MAX_AGENT_ROWS:
             folded = len(rows) - (MAX_AGENT_ROWS - 1)
             rows = rows[:MAX_AGENT_ROWS - 1] + [f"… +{folded} more"]
-        suffix = "_dim" if wid in inactive_ids else ""
-        values["hs_state" + suffix] = STATES[workspace_state(statuses)] if members else NO_AGENTS
         for key, row in zip(AGENT_ROW_KEYS, rows):
             values[key + suffix] = row
         result[wid] = values
